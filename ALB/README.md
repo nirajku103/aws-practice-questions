@@ -8,34 +8,59 @@ SSL termination occurs when the ALB decrypts HTTPS traffic, reducing the workloa
 
 Steps for SSL Termination:
 
-Attach an SSL certificate (e.g., from AWS Certificate Manager).
+Create an SSL certificate (e.g., from AWS Certificate Manager).
 
-Configure an HTTPS listener on the ALB.
+resource "aws_acm_certificate" "ssl_cert" {
+  domain_name       = "example.com"
+  validation_method = "DNS"
+
+  tags = {
+    Environment = "production"
+  }
+}
+
+Create the http listenetr with port 443
+
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.example.arn
+  port              = 443
+  protocol          = "HTTPS"
+
+  ssl_policy = "ELBSecurityPolicy-2016-08"
+  certificate_arn = aws_acm_certificate.ssl_cert.arn
+
+  default_action {
+    type = "forward"
+    target_group_arn = aws_lb_target_group.example.arn
+  }
+}
+
+
+Configure an target group on the ALB.
+
+resource "aws_lb_target_group" "example" {
+  name     = "example-target-group"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.example.id
+}
+
+add the backends target to forward port
+
+resource "aws_lb_target_group_attachment" "example" {
+  target_group_arn = aws_lb_target_group.example.arn
+  target_id        = aws_instance.backend.id
+  port             = 80
+}
 
 AWS CLI Example:
 
-aws elbv2 create-listener \
+``aws elbv2 create-listener \
   --load-balancer-arn <ALB_ARN> \
   --protocol HTTPS \
   --port 443 \
   --certificates CertificateArn=<CERTIFICATE_ARN> \
-  --default-actions Type=forward,TargetGroupArn=<TARGET_GROUP_ARN>
-
-Terraform Resource Block:
-
-resource "aws_lb_listener" "https_listener" {
-  load_balancer_arn = aws_lb.alb.arn
-  port              = 443
-  protocol          = "HTTPS"
-
-  ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = aws_acm_certificate.cert.arn
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.target_group.arn
-  }
-}
+  --default-actions Type=forward,TargetGroupArn=<TARGET_GROUP_ARN>``
 
 3. How does ALB perform health checks?
 
@@ -86,26 +111,56 @@ aws elbv2 create-rule \
 
 Terraform Resource Block:
 
-resource "aws_lb_listener_rule" "path_based_routing" {
-  listener_arn = aws_lb_listener.https_listener.arn
-  priority     = 10
-
-  conditions {
-    field  = "path-pattern"
-    values = ["/api/*"]
-  }
-
-  actions {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.api.arn
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.this.arn
+  port              = "80"
+  protocol          = "HTTP"
+  default_action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "404: Not Found"
+      status_code  = "404"
+    }
   }
 }
+
+resource "aws_lb_listener_rule" "service1" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 100
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.service1.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/health"]
+    }
+  }
+}
+
 
 5. How can I secure traffic between my ALB and my targets?
 
 Use HTTPS for both ALB listeners and target group communication.
-
 Enable TLS encryption at the target level.
+Configure SSL/TLS for Backend Targets
+Update the ALB Target Group Protocol to HTTPS
+
+Update the Target Group to Use HTTPS
+
+``aws elbv2 modify-target-group --target-group-arn <TARGET_GROUP_ARN> --protocol HTTPS --port 443``
+
+Add an HTTPS Health Check
+
+``aws elbv2 modify-target-group --target-group-arn <TARGET_GROUP_ARN> --health-check-protocol HTTPS --health-check-path /health``
+
+Register Targets
+
+``aws elbv2 register-targets --target-group-arn <TARGET_GROUP_ARN> --targets Id=<INSTANCE_ID>,Port=443``
+
 
 6. How do I configure logging for my ALB?
 
@@ -113,11 +168,11 @@ Logging can be enabled by storing access logs in an S3 bucket.
 
 AWS CLI Example:
 
-aws elbv2 modify-load-balancer-attributes \
+``aws elbv2 modify-load-balancer-attributes \
   --load-balancer-arn <ALB_ARN> \
   --attributes Key=access_logs.s3.enabled,Value=true \
                Key=access_logs.s3.bucket,Value=<BUCKET_NAME> \
-               Key=access_logs.s3.prefix,Value=<PREFIX>
+               Key=access_logs.s3.prefix,Value=<PREFIX>``
 
 Terraform Resource Block:
 
@@ -148,6 +203,35 @@ aws elbv2 create-listener \
   --protocol HTTP \
   --port 80 \
   --default-actions Type=forward,TargetGroupArn=<TARGET_GROUP_ARN>
+
+# http listener
+
+resource "aws_lb_listener" "http_listener" {
+  load_balancer_arn = aws_lb.my_alb.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.http_target_group.arn
+  }
+}
+
+# https listener
+
+resource "aws_lb_listener" "https_listener" {
+  load_balancer_arn = aws_lb.my_alb.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = aws_acm_certificate.my_certificate.arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.https_target_group.arn
+  }
+}
+
 
 8. How can I monitor my Application Load Balancer?
 

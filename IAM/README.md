@@ -16,15 +16,17 @@ Assign permissions using policies.
 
 Enable temporary access with roles.
 
-Real-Time Use Case: Using IAM roles to grant Lambda functions permission to access an S3 bucket.
+eg: Using IAM roles to grant Lambda functions permission to access an S3 bucket.
 
 Q3. What Are Least-Privilege Permissions?
 
 The principle of least privilege means granting only the permissions necessary to perform a specific task.
 
-Example: A user who needs access to an EC2 instance should not have permissions to delete S3 buckets.
+``aws iam attach-role-policy \
+    --role-name ExampleRole \
+    --policy-arn arn:aws:iam::aws:policy/ReadOnlyAccessToS3``
 
-Real-Time Use Case: Creating IAM policies to restrict developer access to only certain DynamoDB tables.
+Least-Pivilage basically means kind of read-only-access
 
 Q4. What Are IAM Policies?
 
@@ -37,7 +39,7 @@ Example Policy:
     {
       "Effect": "Allow",
       "Action": "s3:ListBucket",
-      "Resource": "arn:aws:s3:::example-bucket"
+      "Resource": "arn:aws:s3:::niraj-bucket"
     }
   ]
 }
@@ -46,14 +48,14 @@ Q5. Why Should I Use IAM Roles?
 
 IAM roles provide temporary credentials, improving security by avoiding hard-coded credentials.
 
-Real-Time Use Case: Assigning an IAM role to an EC2 instance to allow it to upload logs to an S3 bucket without using access keys.
+eg: Assigning an IAM role to an EC2 instance to allow it to upload logs to an S3 bucket without using access keys.
 
 Q6. How to Create Policies Using AWS CLI?
 
 Command:
-aws iam create-policy \
+``aws iam create-policy \
     --policy-name ExamplePolicy \
-    --policy-document file://policy.json
+    --policy-document file://policy.json``
 
 sample-policy.json
 
@@ -70,13 +72,73 @@ sample-policy.json
 
 Q7. What Types of Policies?
 
-Managed Policies: Predefined policies by AWS or custom policies created by users.
+Managed Policies: Predefined policies by AWS or custom policies created by users. bascially read only policies
 
-Inline Policies: Policies embedded directly into an IAM entity.
+``aws iam attach-user-policy \
+    --policy-arn arn:aws:iam::aws:policy/ReadOnlyAccess \
+    --user-name niraj-react``
+
+
+Inline Policies: Policies embedded directly into an IAM entity. eg : Allow a specific IAM role to manage a specific S3 bucket.
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::example-bucket/*"
+    }
+  ]
+}
+
+Attaching this policy to the role
+
+aws iam put-role-policy \
+    --role-name BucketAccessRole \
+    --policy-name ManageSpecificS3Bucket \
+    --policy-document '{
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Action": [
+                    "s3:PutObject",
+                    "s3:GetObject",
+                    "s3:DeleteObject"
+                ],
+                "Resource": "arn:aws:s3:::niraj-bucket/*"
+            }
+        ]
+    }'
+
 
 Service Control Policies (SCPs): Govern permissions for AWS Organizations.
 
-Real-Time Use Case: Attaching SCPs to an OU to prevent the creation of S3 buckets in specific accounts.
+``aws organizations create-policy \
+    --content '{
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Deny",
+                "Action": "s3:CreateBucket",
+                "Resource": "*"
+            }
+        ]
+    }' \
+    --name "DenyS3BucketCreation" \
+    --type "SERVICE_CONTROL_POLICY"``
+
+  ``aws organizations attach-policy \
+    --policy-id <SCP_ID> \
+    --target-id <OU_ID>``
+
+
+eg : Attaching SCPs to an OU to prevent the creation of S3 buckets in specific accounts.
 
 Q8. What Are the Best Practices?
 
@@ -91,6 +153,8 @@ Use roles instead of access keys.
 Audit and monitor IAM activity.
 
 Q9. Which Policy Attached to Role to Perform ECS Task?
+
+To perform ECS tasks (e.g., running and stopping tasks), you need to attach an IAM policy with the necessary permissions to the IAM role associated with ECS Task Execution Role.
 
 Required Policy:
 {
@@ -107,32 +171,92 @@ Required Policy:
   ]
 }
 
+Terraform block :
+
+resource "aws_iam_role" "ecs_task_execution_role" {
+  name = "${var.cluster_name}-ecs-execution-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "ecs-tasks.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+Attach the ecs tasks policy to the task execution role
+
+resource "aws_iam_role_policy_attachment" "custom_ecs_task_policy_attachment" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = aws_iam_policy.ecs_task_policy.arn
+}
+
+
 Q10. How to Assign User/Admin IAM Policy for ECS Management?
 
 Command:
-aws iam attach-user-policy \
+
+``aws iam attach-user-policy \
     --policy-arn arn:aws:iam::aws:policy/AmazonECS_FullAccess \
-    --user-name AdminUser
+    --user-name AdminUser``
 
 Q11. If You're Creating and Managing AWS EKS Service, Which IAM Policies Are Required?
 
 AmazonEKSClusterPolicy
 
+AmazonEKSWorkerNodePolicy
+
+AmazonEC2ContainerRegistryReadOnly
+
+AmazonEKSFargatePodExecutionRolePolicy (if using compute as fargate)
+
 AmazonEKSServicePolicy
 
 AmazonEKSVPCResourceController
 
+
 Terraform Block:
+
 resource "aws_iam_role_policy_attachment" "eks_policy" {
   role       = aws_iam_role.eks_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
 }
 
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "eks:CreateCluster",
+        "eks:DescribeCluster",
+        "eks:DeleteCluster",
+        "eks:UpdateClusterVersion",
+        "eks:TagResource"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+
+
 Q12. What Is the Use of iam:PassRole Permission?
 
 The iam:PassRole permission allows passing an IAM role to an AWS service.
+It is essential for actions where an IAM role needs to be assumed by an AWS service to perform specific tasks on behalf of the user
 
-Real-Time Use Case: Granting a user permission to launch an EC2 instance using a specific role.
+you need to allow an EC2 instance to assume a specific role. For example, when launching an EC2 instance that needs to assume a role to access resources like S3 or DynamoDB, the user launching the instance must have the iam:PassRole permission to pass the IAM role to the EC2 instance
+
+resource "aws_instance" "ec2_instance" {
+  ami           = "ami-0c55b159cbfafe1f0" # Example AMI ID
+  instance_type = "t2.micro"
+  iam_instance_profile = aws_iam_role.ec2_s3_role.name
+}
+
 
 Q13. What Is a Trust Policy?
 
@@ -177,12 +301,12 @@ Q15. How to Audit IAM Changes?
 
 Enable CloudTrail: Tracks all IAM API activities.
 
-AWS Config: Monitors changes in IAM roles, users, and policies.
-
 Command:
-aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=CreateUser
+``aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=CreateUser``
 
 Q16. How Would You Restrict an IAM Role to Access S3 Only If MFA Is Enabled and the Request Comes from a Specific VPC?
+
+We can use an IAM policy with conditions based on both MFA authentication and VPC conditions
 
 Policy:
 {

@@ -8,17 +8,25 @@ You can create an OIDC identity provider in IAM by specifying the OIDC issuer UR
 
 AWS CLI Command:
 
-aws iam create-open-id-connect-provider \
+``aws iam create-open-id-connect-provider \
     --url https://accounts.google.com \
     --client-id-list "my-client-id" \
-    --thumbprint-list "THUMBPRINT_VALUE"
+    --thumbprint-list "THUMBPRINT_VALUE"``
 
 Terraform Resource Block:
 
-resource "aws_iam_openid_connect_provider" "my_oidc_provider" {
-  url               = "https://accounts.google.com"
-  client_id_list    = ["my-client-id"]
-  thumbprint_list   = ["THUMBPRINT_VALUE"]
+# OIDC Provider for GitHub
+resource "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
+
+  client_id_list = [
+    "sts.amazonaws.com"
+    
+  ]
+
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1" # GitHub's OIDC thumbprint
+  ]
 }
 
 3. What are the prerequisites for creating an OIDC identity provider in AWS IAM?
@@ -37,10 +45,11 @@ Example AWS CLI Commands:
 
 List OIDC providers:
 
-aws iam list-open-id-connect-providers
+``aws iam list-open-id-connect-providers``
+
 Delete an OIDC identity provider:
 
-aws iam delete-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::123456789012:oidc-provider/accounts.google.com
+``aws iam delete-open-id-connect-provider --open-id-connect-provider-arn arn:aws:iam::123456789012:oidc-provider/accounts.google.com``
 
 5. What is the role of IAM policies in OIDC federation?
 
@@ -48,7 +57,7 @@ IAM policies grant permission to federated users (authenticated via OIDC) to acc
 
 6. Can you provide a Terraform resource block example for creating an OIDC identity provider?
 
-Yes, here’s an example Terraform resource for creating an OIDC identity provider:
+here’s an example Terraform resource for creating an OIDC identity provider:
 
 resource "aws_iam_openid_connect_provider" "my_oidc_provider" {
   url               = "https://accounts.google.com"
@@ -81,6 +90,6 @@ To update the OIDC identity provider, you can modify the provider’s settings s
 
 AWS CLI Command:
 
-aws iam update-open-id-connect-provider \
-    --open-id-connect-provider-arn arn:aws:iam::123456789012:oidc-provider/accounts.google.com \
-    --client-id-list "new-client-id"
+``aws iam update-open-id-connect-provider \
+    --open-id-connect-provider-arn arn:aws:iam::123456789012:oidc-provider/accounts.google.com or githubuser.com \
+    --client-id-list "new-client-id"``

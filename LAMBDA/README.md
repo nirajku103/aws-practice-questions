@@ -22,7 +22,7 @@ Custom Applications: Using SDKs or HTTP APIs
 
 Example AWS CLI Command to Add S3 Trigger:
 
-aws s3api put-bucket-notification-configuration \
+``aws s3api put-bucket-notification-configuration \
   --bucket my-bucket \
   --notification-configuration '{
     "LambdaFunctionConfigurations": [
@@ -31,7 +31,7 @@ aws s3api put-bucket-notification-configuration \
         "Events": ["s3:ObjectCreated:*"]
       }
     ]
-  }'
+  }'``
 
 Terraform Resource Block:
 
@@ -63,20 +63,21 @@ Yes, AWS Lambda can run on a timed schedule using Amazon EventBridge (formerly C
 
 AWS CLI Example:
 
-aws events put-rule \
+``aws events put-rule \
   --schedule-expression "rate(5 minutes)" \
-  --name MyScheduledRule
+  --name MyScheduledRule``
 
-aws lambda add-permission \
+``aws lambda add-permission \
   --function-name my-function \
   --statement-id MyScheduledEvent \
   --action "lambda:InvokeFunction" \
   --principal events.amazonaws.com \
-  --source-arn arn:aws:events:us-west-2:123456789012:rule/MyScheduledRule
+  --source-arn arn:aws:events:us-west-2:123456789012:rule/MyScheduledRule``
 
-aws events put-targets \
+``aws events put-targets \
   --rule MyScheduledRule \
-  --targets "Id"="1","Arn"="arn:aws:lambda:us-west-2:123456789012:function:my-function"
+  --targets "Id"="1","Arn"="arn:aws:lambda:us-west-2:123456789012:function:my-function"``
+
 Terraform Resource Block:
 
 resource "aws_cloudwatch_event_rule" "schedule" {
@@ -118,8 +119,6 @@ Data transformation pipelines.
 
 Backend services for mobile and web apps.
 
-IoT data processing.
-
 Serverless APIs.
 
 Scheduled tasks.
@@ -142,30 +141,30 @@ Use proper IAM roles and least privilege.
 
 AWS CLI Example:
 
-aws lambda create-function \
+``aws lambda create-function \
   --function-name my-function \
   --runtime nodejs14.x \
   --role arn:aws:iam::123456789012:role/lambda-role \
   --handler index.handler \
-  --zip-file fileb://function.zip
+  --zip-file fileb://function.zip``
 
 10. How can you update the code of an existing Lambda function using the AWS CLI?
 AWS CLI Example:
 
-aws lambda update-function-code \
+``aws lambda update-function-code \
   --function-name my-function \
-  --zip-file fileb://function.zip
+  --zip-file fileb://function.zip``
 
 11. How do you add permissions to an AWS Lambda function to allow it to be triggered by an S3 event?
 
 AWS CLI Example:
 
-aws lambda add-permission \
+``aws lambda add-permission \
   --function-name my-function \
   --statement-id s3invoke \
   --action "lambda:InvokeFunction" \
   --principal s3.amazonaws.com \
-  --source-arn arn:aws:s3:::my-bucket
+  --source-arn arn:aws:s3:::my-bucket``
 
 12. How can you monitor AWS Lambda function performance, what important metrics to capture?
 Use Amazon CloudWatch to monitor metrics like:
@@ -203,7 +202,7 @@ Process the data in the Lambda handler.
 
 AWS CLI Example:
 
-aws s3api put-bucket-notification-configuration \
+``aws s3api put-bucket-notification-configuration \
   --bucket my-bucket \
   --notification-configuration '{
     "LambdaFunctionConfigurations": [
@@ -212,7 +211,7 @@ aws s3api put-bucket-notification-configuration \
         "Events": ["s3:ObjectCreated:*"]
       }
     ]
-  }'
+  }'``
 
 14. How can you use AWS Lambda to respond to HTTP requests?
 
